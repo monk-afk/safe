@@ -6,8 +6,10 @@ local safe = {
   contexts = {},
 }
 
+local record_log
 
-function register_page(name, def)
+
+local function register_page(name, def)
   assert(name, "Invalid safe page. Requires a name")
   assert(def, "Invalid safe page. Requires a def[inition] table")
   assert(def.get, "Invalid safe page. Def requires a get function.")
@@ -17,9 +19,10 @@ function register_page(name, def)
   def.name = name
   table.insert(safe.pages_unordered, def)
 end
+safe.register_page = register_page
 
 
-function override_page(name, def)
+local function override_page(name, def)
   assert(name, "Invalid safe page override. Requires a name")
   assert(def, "Invalid safe page override. Requires a def[inition] table")
   local page = safe.pages[name]
@@ -28,6 +31,7 @@ function override_page(name, def)
     page[key] = value
   end
 end
+safe.override_page = override_page
 
 
 local function get_menu_tabs(player, context, nav, current_idx)
@@ -36,17 +40,38 @@ local function get_menu_tabs(player, context, nav, current_idx)
 end
 
 
-function spos(pos)
+local function spos(pos)
   return tostring(pos.x..","..pos.y..","..pos.z)
 end
+safe.spos = spos
 
 
-function idpos(pos)
+local function idpos(pos)
   return tostring(pos.x..pos.y..pos.z):gsub("%-", "n")
+end
+safe.idpos = idpos
+
+
+local function get_homepage_name()
+  return "safe:home"
 end
 
 
-function can_access_safe(player, pos)
+local function get_or_create_context(player)
+  local name = player:get_player_name()
+  local context = safe.contexts[name]
+  if not context then
+    context = {
+      page = get_homepage_name(player)
+    }
+    safe.contexts[name] = context
+  end
+  return context
+end
+safe.get_or_create_context = get_or_create_context
+
+
+local function can_access_safe(player, pos)
   local name = player:get_player_name()
   local context = get_or_create_context(player)
 
@@ -63,9 +88,10 @@ function can_access_safe(player, pos)
   record_log(context.pos, name, "1")
   return false
 end
+safe.can_access_safe = can_access_safe
 
 
-function make_formspec(player, context, content, show_tabs, size)
+local function make_formspec(player, context, content, show_tabs, size)
   local tmp = {
     size and size.."no_prepend[]" or "size[10,8.1]no_prepend[]",
     show_tabs and get_menu_tabs(player, context, context.nav_titles, context.nav_idx) or "",
@@ -73,11 +99,7 @@ function make_formspec(player, context, content, show_tabs, size)
   }
   return table.concat(tmp, "")
 end
-
-
-local function get_homepage_name()    
-  return "safe:home"
-end
+safe.make_formspec = make_formspec
 
 
 local function get_formspec(player, context)
@@ -123,27 +145,15 @@ local function get_formspec(player, context)
 end
 
 
-function get_or_create_context(player)
-  local name = player:get_player_name()
-  local context = safe.contexts[name]
-  if not context then
-    context = {
-      page = get_homepage_name(player)
-    }
-    safe.contexts[name] = context
-  end
-  return context
-end
-
-
-function show_player_formspec(player, context)
+local function show_player_formspec(player, context)
   local fs = get_formspec(player, get_or_create_context(player))
   minetest.after(0.2, minetest.show_formspec,
       player:get_player_name(), "safe:formspec", fs)
 end
+safe.show_player_formspec = show_player_formspec
 
 
-function set_page(player, pagename)
+local function set_page(player, pagename)
   local context = get_or_create_context(player)
   local oldpage = safe.pages[context.page]
   
@@ -160,15 +170,17 @@ function set_page(player, pagename)
 
   show_player_formspec(player, context)
 end
+safe.set_page = set_page
 
 
 local function get_page(player)
   local context = safe.contexts[player:get_player_name()]
   return context and context.page or get_homepage_name(player)
 end
+safe.get_page = get_page
 
 
-function record_log(pos, name, code)
+record_log = function(pos, name, code)
   local meta = minetest.get_meta(pos)
   local logs = minetest.deserialize(meta:get_string("logs")) or {}
 
@@ -181,16 +193,18 @@ function record_log(pos, name, code)
   meta:set_string("logs", minetest.serialize(logs))
   meta:mark_as_private("logs")
 end
+safe.record_log = record_log
 
 
 local mf = math.floor
 local mfm = math.fmod
-function time_remaining(time_lock)
+local function time_remaining(time_lock)
     local time = (time_lock + 259200) - os.time()
     local h = mf(time/3600)
     local m = mf(mfm(time,3600)/60)
   return time, string.format("%02dh %02dm", h,m)
 end
+safe.time_remaining = time_remaining
 
 return safe
 

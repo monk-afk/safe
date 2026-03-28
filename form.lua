@@ -1,14 +1,14 @@
   --==[[        Safe        ]]==--
       --====================--
-bg_front = "background9[0,0;0,0;safe_safe_new.png;true;true]"
-bg_locked = "background9[0,0;0,0;safe_safe_front.png;true;true]"
-
-set_owner_form = [[
+local form = {
+  bg_front = "background9[0,0;0,0;safe_safe_new.png;true;true]",
+  bg_locked = "background9[0,0;0,0;safe_safe_front.png;true;true]",
+  set_owner_form = [[
   box[-0.1,-0.1;5,0.77;#30A110FF]
   box[-0.1,2.425;5,0.77;#30A110FF]
-]]
+]],
 
-pin_form = [[
+  pin_form = [[
   box[1.8,1.5;3.9,5.5;#0e0e0eFF]
   style_type[button;bgcolor=#323232;font=bold;textcolor=#00ee00ff]
   button[2.05,3.60;0.9,0;keypad;1]
@@ -27,20 +27,22 @@ pin_form = [[
   button[4.75,3.6;0.9,0;pin_submit;>]
   style_type[button_exit;bgcolor=#323232;font=bold;textcolor=#ee0000ff]
   button_exit[4.75,4.5;0.9,0;exit;X]
-]]
+]],
 
-recover_btn = [[
+  recover_btn = [[
   style_type[button;bgcolor=#323232;font=bold;textcolor=#ee8e00ff]
   button[4.75,5.4;0.9,0;recover_btn;?]
-]]
+]],
+}
 
-box = function(width)
+local function box(width)
   return [[
     box[-0.1,-0.1;]]..width..[[,0.77;#30A110FF]
   ]]
 end
+form.box = box
 
-function inventory_form(str_pos)
+local function inventory_form(str_pos)
   return [[
     list[nodemeta:]] .. str_pos .. [[;safe;0,0;10,4;]
     list[current_player;main;1,4.25;8,4;]
@@ -48,39 +50,44 @@ function inventory_form(str_pos)
 	  listring[current_player;main]
   ]]
 end
+form.inventory_form = inventory_form
 
-function header(text) 
+local function header(text)
   return [[
     style_type[label;font=bold]
     label[0,0.025;]]..text..[[]
   ]]
 end
+form.header = header
 
-function label(xy, text)
+local function label(xy, text)
   return [[
     style_type[label;font=bold]
     label[]]..xy..[[;]]..text..[[]
   ]]
 end
+form.label = label
 
 -- button[<X>,<Y>;<W>,<H>;<name>;<label>]
-function button(fields)
+local function button(fields)
   return [[
     style_type[button;bgcolor=#323232;font=bold]
     button[]]..table.concat(fields, ";")..[[]
   ]]
 end
+form.button = button
 
 -- button_exit[<X>,<Y>;<W>,<H>;<name>;<label>]
-function button_exit(fields) 
+local function button_exit(fields)
   return [[
     style_type[button_exit;bgcolor=#232323;font=bold;textcolor=red]
     button_exit[]]..table.concat(fields, ";")..[[]
   ]]
 end
+form.button_exit = button_exit
 
 -- field[<X>,<Y>;<W>,<H>;<name>;<label>;<text>]
-function field(fields)
+local function field(fields)
   local name = fields[3]
 
   return [[
@@ -89,9 +96,10 @@ function field(fields)
     field[]]..table.concat(fields, ";")..[[]
   ]]
 end
+form.field = field
 
 -- textarea[<X>,<Y>;<W>,<H>;<name>;<label>;<default>]
-function textarea(fields)
+local function textarea(fields)
   local name = fields[3]
 
   return [[
@@ -100,9 +108,10 @@ function textarea(fields)
     textarea[]]..table.concat(fields, ";")..[[]
   ]]
 end
+form.textarea = textarea
 
 -- pwdfield[<X>,<Y>;<W>,<H>;<name>;<label>;<text>]
-function pwdfield(fields)
+local function pwdfield(fields)
   local name = fields[3]
 
   return [[
@@ -111,6 +120,7 @@ function pwdfield(fields)
     pwdfield[]]..table.concat(fields, ";")..[[]
   ]]
 end
+form.pwdfield = pwdfield
 
 --[[
   record_log(pos, name, "9")
@@ -123,7 +133,7 @@ end
     0 = Incorrect PIN
 ]]
 
-function access_logs(pos)
+local function access_logs(pos)
   local meta = minetest.get_meta(pos)
   local logs = minetest.deserialize(meta:get_string("logs")) or {}
   local rows = {
@@ -159,6 +169,9 @@ function access_logs(pos)
     table[0,0;9.75,8.1;list;]]..table.concat(rows, ",")..[[]
   ]]
 end
+form.access_logs = access_logs
+
+return form
 
 
 

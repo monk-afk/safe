@@ -1,6 +1,6 @@
 # Locked Safe
 
-A Passcode Protected Inventory Node. Secured with Pure-Lua SHA3 Encryption.
+A Passcode Protected Inventory Node. Secured with Pure-Lua SHA3 Hashing.
 
 ___
 
@@ -15,7 +15,7 @@ Minetest does not encrypt network traffic between a server and it's clients.
 
 This means, once connected to a server all data you send to and receive from the server is vulnerable to eavesdropping.
 
-Vicariously, that makes this mod also vulnerable regardless of any encryption method.
+Vicariously, that makes this mod also vulnerable regardless of any hash strenght.
 
 This will eventually be addressed in future updates to Minetest. Until then, this warning must stay posted.
 
@@ -26,6 +26,7 @@ ___
 - Features
   - Records Access and Activity Logs
   - Authentication data is encrypted with SHA3-224
+  - Hidden node meta keeps safe contents a secret
 
 - Configuration
   - Safe-Admin sets Initial Ownership, there's no craft recipe
@@ -47,6 +48,14 @@ ___
   - Forces regenerating new Keys if there are only two Keys remaining
   - After using a Recovery Key, new Keys may not be generated for 72 hours
 
+- Swappable hashing
+  - Pure Lua SHA libraries from Egor Skriptunoff
+  - Includes hash algorithms set in minetest.conf:
+    - SHA3-224 (default): safe_hash_algorithm = sha3
+    - SHA512-224: safe_hash_algorithm = sha512
+    - Blake3: safe_hash_algorithm = blake3
+
+
 
 ## Changelog
 
@@ -54,9 +63,6 @@ ___
   - Initial Release
 
 ## Attributions
-
-- Safe, Copyright (c) 2024 monk <monk.squareone@gmail.com>
-  - MIT License, Source: https://github.com/monk-afk/safe
 
 - pure_lua_SHA, Copyright (c) 2018-2022  Egor Skriptunoff
   - MIT License, Source: https://github.com/Egor-Skriptunoff/pure_lua_SHA

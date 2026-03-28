@@ -5,9 +5,41 @@ local FE = minetest.formspec_escape
 
 local modpath = minetest.get_modpath(minetest.get_current_modname()).."/"
 local safe = dofile(modpath.."api.lua")
-dofile(modpath.."node.lua")
-dofile(modpath.."salt.lua")
-dofile(modpath.."form.lua")
+local passwords = dofile(modpath.."salt.lua")
+local forms = dofile(modpath.."form.lua")
+dofile(modpath.."node.lua")(safe, passwords)
+
+local register_page = safe.register_page
+local can_access_safe = safe.can_access_safe
+local get_or_create_context = safe.get_or_create_context
+local idpos = safe.idpos
+local make_formspec = safe.make_formspec
+local record_log = safe.record_log
+local set_page = safe.set_page
+local spos = safe.spos
+local time_remaining = safe.time_remaining
+
+local bg_front = forms.bg_front
+local bg_locked = forms.bg_locked
+local set_owner_form = forms.set_owner_form
+local pin_form = forms.pin_form
+local recover_btn = forms.recover_btn
+local access_logs = forms.access_logs
+local box = forms.box
+local button = forms.button
+local button_exit = forms.button_exit
+local field = forms.field
+local header = forms.header
+local inventory_form = forms.inventory_form
+local pwdfield = forms.pwdfield
+local textarea = forms.textarea
+
+local check_password = passwords.check_password
+local count_remaining_keys = passwords.count_remaining_keys
+local generate_backup_codes = passwords.generate_backup_codes
+local new_password = passwords.new_password
+local save_safe_context = passwords.save_safe_context
+local verify_recovery_key = passwords.verify_recovery_key
 
 minetest.register_on_leaveplayer(function(player)
   safe.contexts[player:get_player_name()] = nil

@@ -2,135 +2,144 @@
       --====================--
 local S = minetest.get_translator("safe")
 
-minetest.register_node("safe:safe", {
-	description = S("Safe Storage"),
-	paramtype = "light",
-	paramtype2 = "facedir",
-	tiles = {
-    "safe_safe_back.png",
-    "safe_safe_back.png",
-    "safe_safe_back.png",
-    "safe_safe_back.png",
-    "safe_safe_back.png",
-    "safe_safe_front.png"
-  },
-	is_ground_content = false,
-	groups = {cracky=1},
+return function(safe, passwords)
+  local can_access_safe = safe.can_access_safe
+  local get_or_create_context = safe.get_or_create_context
+  local idpos = safe.idpos
+  local set_page = safe.set_page
+  local spos = safe.spos
+  local delete_password = passwords.delete_password
 
-	on_construct = function(pos)
-		local meta = minetest.get_meta(pos)
-    meta:set_string("infotext", S("Unowned Safe"))
-    meta:set_string("logs", minetest.serialize({}))
-    meta:mark_as_private("logs")
-		meta:set_string("owner", "")
-    meta:set_string("name", "Player")
-    meta:mark_as_private("name")
-    local inv = meta:get_inventory()
-    inv:set_size("safe", 10*4)
-    meta:mark_as_private("safe")
-	end,
+  minetest.register_node("safe:safe", {
+  	description = S("Safe Storage"),
+  	paramtype = "light",
+  	paramtype2 = "facedir",
+  	tiles = {
+      "safe_safe_back.png",
+      "safe_safe_back.png",
+      "safe_safe_back.png",
+      "safe_safe_back.png",
+      "safe_safe_back.png",
+      "safe_safe_front.png"
+    },
+  	is_ground_content = false,
+  	groups = {cracky=1},
 
-	after_place_node = function(pos, player)
-    if minetest.check_player_privs(player, "protection_bypass") then
-      local context = get_or_create_context(player)
-      context.pos = pos
-      set_page(player, "safe:set_owner")
-    end
-	end,
+  	on_construct = function(pos)
+  		local meta = minetest.get_meta(pos)
+      meta:set_string("infotext", S("Unowned Safe"))
+      meta:set_string("logs", minetest.serialize({}))
+      meta:mark_as_private("logs")
+  		meta:set_string("owner", "")
+      meta:set_string("name", "Player")
+      meta:mark_as_private("name")
+      local inv = meta:get_inventory()
+      inv:set_size("safe", 10*4)
+      meta:mark_as_private("safe")
+  	end,
 
-	on_rightclick = function(pos, node, player)
-		local meta = minetest.get_meta(pos)
-    local name = player:get_player_name()
-    local owner = meta:get_string("owner")
-    local safe_id = meta:get_string("name")
+  	after_place_node = function(pos, player)
+      if minetest.check_player_privs(player, "protection_bypass") then
+        local context = get_or_create_context(player)
+        context.pos = pos
+        set_page(player, "safe:set_owner")
+      end
+  	end,
 
-    if minetest.check_player_privs(player, "protection_bypass")
-        and owner == "" then -- Safe admin didnt set name
-      local context = get_or_create_context(player)
-      context.pos = pos
-      return set_page(player, "safe:set_owner")
-    end
+  	on_rightclick = function(pos, node, player)
+  		local meta = minetest.get_meta(pos)
+      local name = player:get_player_name()
+      local owner = meta:get_string("owner")
+      local safe_id = meta:get_string("name")
 
-    if owner == name and safe_id == "Player" then -- owner has not set password
-      local context = get_or_create_context(player)
-      context.pos = pos
-      return set_page(player, "safe:warning_advisory")
-    end
+      if minetest.check_player_privs(player, "protection_bypass")
+          and owner == "" then -- Safe admin didnt set name
+        local context = get_or_create_context(player)
+        context.pos = pos
+        return set_page(player, "safe:set_owner")
+      end
 
-    if owner ~= "" and safe_id == idpos(pos) then
-      local context = get_or_create_context(player)
-      context.pos = pos
-      return set_page(player, "safe:unlock_safe")
-    end
-	end,
+      if owner == name and safe_id == "Player" then -- owner has not set password
+        local context = get_or_create_context(player)
+        context.pos = pos
+        return set_page(player, "safe:warning_advisory")
+      end
 
-  can_dig = function(pos,player)
-    local meta = minetest.get_meta(pos);
-    local inv = meta:get_inventory()
-    return inv:is_empty("safe")
-        and minetest.check_player_privs(player, "protection_bypass")
-  end,
+      if owner ~= "" and safe_id == idpos(pos) then
+        local context = get_or_create_context(player)
+        context.pos = pos
+        return set_page(player, "safe:unlock_safe")
+      end
+  	end,
 
-  after_dig_node = function(pos, oldnode, oldmetadata, player)
-    return delete_password(pos)
-  end,
+    can_dig = function(pos,player)
+      local meta = minetest.get_meta(pos);
+      local inv = meta:get_inventory()
+      return inv:is_empty("safe")
+          and minetest.check_player_privs(player, "protection_bypass")
+    end,
 
-  allow_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
-    if not can_access_safe(player, pos) then
+    after_dig_node = function(pos, oldnode, oldmetadata, player)
+      return delete_password(pos)
+    end,
+
+    allow_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
+      if not can_access_safe(player, pos) then
+        minetest.log("action", player:get_player_name()..
+            " tried to access "..minetest.get_node(pos).name..
+            " at ("..spos(pos)..")")
+        return 0
+      end
+      return count
+    end,
+
+    allow_metadata_inventory_put = function(pos, listname, index, stack, player)
+      if not can_access_safe(player, pos) then
+        minetest.log("action", player:get_player_name()..
+            " tried to access "..minetest.get_node(pos).name..
+            " at ("..spos(pos)..")")
+        return 0
+      end
+      return stack:get_count()
+    end,
+
+    allow_metadata_inventory_take = function(pos, listname, index, stack, player)
+      if not can_access_safe(player, pos) then
+        minetest.log("action", player:get_player_name()..
+            " tried to access "..minetest.get_node(pos).name..
+            " at ("..spos(pos)..")")
+        return 0
+      end
+      return stack:get_count()
+    end,
+
+    on_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
+      local meta = minetest.get_meta(pos)
+      local inv = meta:get_inventory()
+      local from_stack = inv:get_stack(from_list, from_index)
+      local to_stack = inv:get_stack(to_list, to_index)
       minetest.log("action", player:get_player_name()..
-          " tried to access "..minetest.get_node(pos).name..
+          " moves "..to_stack:get_name().." "..to_stack:get_count()..
+          " to "..from_stack:get_name().." "..from_stack:get_count()..
+          " inside "..minetest.get_node(pos).name..
           " at ("..spos(pos)..")")
-      return 0
-    end
-    return count
-  end,
+    end,
 
-  allow_metadata_inventory_put = function(pos, listname, index, stack, player)
-    if not can_access_safe(player, pos) then
+    on_metadata_inventory_put = function(pos, listname, index, stack, player)
       minetest.log("action", player:get_player_name()..
-          " tried to access "..minetest.get_node(pos).name..
+          " puts "..stack:get_name().." "..stack:get_count()..
+          " into "..minetest.get_node(pos).name..
           " at ("..spos(pos)..")")
-      return 0
-    end
-    return stack:get_count()
-  end,
-
-  allow_metadata_inventory_take = function(pos, listname, index, stack, player)
-    if not can_access_safe(player, pos) then
+    end,
+    
+    on_metadata_inventory_take = function(pos, listname, index, stack, player)
       minetest.log("action", player:get_player_name()..
-          " tried to access "..minetest.get_node(pos).name..
+          " takes "..stack:get_name().." "..stack:get_count()..
+          " from "..minetest.get_node(pos).name..
           " at ("..spos(pos)..")")
-      return 0
-    end
-    return stack:get_count()
-  end,
-
-  on_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
-    local meta = minetest.get_meta(pos)
-    local inv = meta:get_inventory()
-    local from_stack = inv:get_stack(from_list, from_index)
-    local to_stack = inv:get_stack(to_list, to_index)
-    minetest.log("action", player:get_player_name()..
-        " moves "..to_stack:get_name().." "..to_stack:get_count()..
-        " to "..from_stack:get_name().." "..from_stack:get_count()..
-        " inside "..minetest.get_node(pos).name..
-        " at ("..spos(pos)..")")
-  end,
-
-  on_metadata_inventory_put = function(pos, listname, index, stack, player)
-    minetest.log("action", player:get_player_name()..
-        " puts "..stack:get_name().." "..stack:get_count()..
-        " into "..minetest.get_node(pos).name..
-        " at ("..spos(pos)..")")
-  end,
-  
-  on_metadata_inventory_take = function(pos, listname, index, stack, player)
-    minetest.log("action", player:get_player_name()..
-        " takes "..stack:get_name().." "..stack:get_count()..
-        " from "..minetest.get_node(pos).name..
-        " at ("..spos(pos)..")")
-  end,
-})
+    end,
+  })
+end
 
 
 ------------------------------------------------------------------------------------

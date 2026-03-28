@@ -3,7 +3,25 @@
 local modname = minetest.get_current_modname()
 local modpath = minetest.get_modpath(modname).."/"
 local storage = minetest.get_mod_storage()
-dofile(modpath.."sha3.lua")
+local passwords = {}
+
+local available_hash = {
+  sha3   = "sha3.lua",
+  blake3 = "blake3.lua",
+  sha512 = "sha512.lua"
+}
+
+local algorithm = minetest.settings:get("safe_hash_algorithm")
+
+if not algorithm or algorithm == "" then
+  algorithm = available_hash.sha3
+elseif available_hash[algorithm] then
+  algorithm = available_hash[algorithm]
+else
+  algorithm = available_hash.sha3
+end
+
+local hash_password = dofile(modpath..algorithm)
 
 local byte = string.byte
 local char = string.char
@@ -45,6 +63,11 @@ local function padding(str)
 end
 
 
+local function pos_to_string(pos)
+  return tostring(pos.x..","..pos.y..","..pos.z)
+end
+
+
 local safe_data = minetest.deserialize(storage:get_string(modname))
 if type(safe_data) ~= "table" then
   safe_data = {} 
@@ -60,16 +83,17 @@ end
 
 
 -- function to check if there are 2 codes left, to generate new keys
-function count_remaining_keys(str_pos)
+local function count_remaining_keys(str_pos)
   if #safe_data[str_pos][3] <= 2 then
     return true
   end
 end
+passwords.count_remaining_keys = count_remaining_keys
 
 
-function verify_recovery_key(raw_code, str_pos)
+local function verify_recovery_key(raw_code, str_pos)
   local baseless_salt = minetest.decode_base64(safe_data[str_pos][1])
-  local code = sha3(baseless_salt..padding(raw_code))
+  local code = hash_password(baseless_salt..padding(raw_code))
 
   for c = 1, #safe_data[str_pos][3] do
     if safe_data[str_pos][3][c] == code then
@@ -80,9 +104,10 @@ function verify_recovery_key(raw_code, str_pos)
     end
   end
 end
+passwords.verify_recovery_key = verify_recovery_key
 
 
-function generate_backup_codes(str_pos)
+local function generate_backup_codes(str_pos)
   local backup_codes = {}
   local chars = "SmK96xNTXjhylqLnidZpkDgsCHVM7cJr302aewAEBWQFOtR14zGPbY5vuUoI8f"
   local baseless_salt = minetest.decode_base64(safe_data[str_pos][1])
@@ -93,18 +118,19 @@ function generate_backup_codes(str_pos)
       backup_codes[n] = (backup_codes[n] or "") .. chars:sub(r,r)
     end
 
-    safe_data[str_pos][3][n] = sha3(baseless_salt..padding(backup_codes[n]))  
+    safe_data[str_pos][3][n] = hash_password(baseless_salt..padding(backup_codes[n]))
   end
 
   save_safe_data()
 
   return backup_codes
 end
+passwords.generate_backup_codes = generate_backup_codes
 
 
 local safe_context = {}
 
-function save_safe_context(pos)
+local function save_safe_context(pos)
   local function transfer_context(str_pos, data)
     safe_data[str_pos] = {
       minetest.encode_base64(data[1]),
@@ -113,7 +139,7 @@ function save_safe_context(pos)
     return safe_data[str_pos]
   end
 
-  local str_pos = spos(pos)
+  local str_pos = pos_to_string(pos)
   local new_data = transfer_context(str_pos, safe_context[str_pos])
 
   if new_data and new_data[2] == safe_context[str_pos][2] then
@@ -121,60 +147,70 @@ function save_safe_context(pos)
     safe_context[str_pos] = nil
   end
 end
+passwords.save_safe_context = save_safe_context
 
 
-function new_password(password, pos)
+local function new_password(password, pos)
   local salt = generate_salt(32)
   local keys = {}
-  local str_pos = spos(pos)
+  local str_pos = pos_to_string(pos)
 
   if safe_data[str_pos] then
     salt = minetest.decode_base64(safe_data[str_pos][1])
     keys = safe_data[str_pos][3]
   end
 
-  local hash = sha3(salt .. padding(password))
+  local hash = hash_password(salt .. padding(password))
   safe_context[str_pos] = {salt, hash, keys}
   return true
 end
+passwords.new_password = new_password
 
 
-function check_password(password, pos, check_context)
+local function check_password(password, pos, check_context)
   -- check_context true to check password (to unlock safe)
-  if not check_context and safe_data[spos(pos)] then
-    local hash = safe_data[spos(pos)][2]
-    local base = safe_data[spos(pos)][1]
+  local str_pos = pos_to_string(pos)
+
+  if not check_context and safe_data[str_pos] then
+    local hash = safe_data[str_pos][2]
+    local base = safe_data[str_pos][1]
     local salt = minetest.decode_base64(base)
 
-    if sha3(salt..padding(password)) == hash then
+    if hash_password(salt..padding(password)) == hash then
       return true
     end
   
   -- check_context nil to verify second password (for new password)
-  elseif check_context and safe_context[spos(pos)] then
-    local hash = safe_context[spos(pos)][2]
-    local salt = safe_context[spos(pos)][1]
+  elseif check_context and safe_context[str_pos] then
+    local hash = safe_context[str_pos][2]
+    local salt = safe_context[str_pos][1]
 
-    if sha3(salt..padding(password)) == hash then
+    if hash_password(salt..padding(password)) == hash then
       return true
     end
   end
 
   return false
 end
+passwords.check_password = check_password
 
 
-function delete_password(pos)
-  if safe_data[spos(pos)] then
-    safe_data[spos(pos)] = nil
+local function delete_password(pos)
+  local str_pos = pos_to_string(pos)
+
+  if safe_data[str_pos] then
+    safe_data[str_pos] = nil
   end
 
-  if safe_context[spos(pos)] then
-    safe_context[spos(pos)] = nil
+  if safe_context[str_pos] then
+    safe_context[str_pos] = nil
   end
 
   return save_safe_data()
 end
+passwords.delete_password = delete_password
+
+return passwords
 
 
 
